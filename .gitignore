@@ -1,0 +1,10 @@
+# Rust build output
+/target/
+
+# Private local material; never publish this directory
+/secrets/
+
+# Local operating-system and debug artifacts
+Thumbs.db
+.DS_Store
+*.pdb
