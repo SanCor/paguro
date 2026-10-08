@@ -4,6 +4,9 @@
 # Private local material; never publish this directory
 /secrets/
 
+# Maintainer-only local helper; keep on disk but out of the public repo
+/commit_and_push.bat
+
 # Local operating-system and debug artifacts
 Thumbs.db
 .DS_Store
