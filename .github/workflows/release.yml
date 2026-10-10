@@ -1,0 +1,132 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  NNUE_NAME: nn-3475407dc199.nnue
+  NNUE_URL: https://tests.stockfishchess.org/api/nn/nn-3475407dc199.nnue
+  NNUE_SHA256: 3475407dc19973ea44467678634cce023d620e419770c111cc8937fe6689ec87
+
+jobs:
+  build:
+    name: Build (${{ matrix.artifact }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: windows-x86_64
+            exe: paguro.exe
+          - os: ubuntu-latest
+            artifact: linux-x86_64
+            exe: paguro
+          - os: macos-latest
+            artifact: macos-aarch64
+            exe: paguro
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build release
+        run: cargo build --release --locked
+
+      - name: Download NNUE network
+        shell: bash
+        run: |
+          curl -fsSL -o "$NNUE_NAME" "$NNUE_URL"
+          echo "$NNUE_SHA256  $NNUE_NAME" > nnue.sha256
+          if command -v sha256sum >/dev/null; then
+            sha256sum -c nnue.sha256
+          else
+            shasum -a 256 -c nnue.sha256
+          fi
+
+      - name: Stage package files
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          STAGE="Paguro-${VERSION}-${{ matrix.artifact }}"
+          mkdir -p "$STAGE"
+          cp "target/release/${{ matrix.exe }}" "$STAGE/"
+          cp "$NNUE_NAME" "$STAGE/"
+          cp LICENSE README.md THIRD_PARTY_NOTICES.md "$STAGE/"
+          cp packaging/paguro.release.ini "$STAGE/paguro.ini"
+          echo "$STAGE" > stage_name.txt
+          echo "Paguro-${VERSION}-${{ matrix.artifact }}.zip" > archive_name.txt
+
+      - name: Create zip (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          STAGE=$(cat stage_name.txt)
+          ARCHIVE=$(cat archive_name.txt)
+          powershell -NoProfile -Command "Compress-Archive -Path '$STAGE' -DestinationPath '$ARCHIVE' -Force"
+
+      - name: Create zip (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          STAGE=$(cat stage_name.txt)
+          ARCHIVE=$(cat archive_name.txt)
+          zip -r "$ARCHIVE" "$STAGE"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: paguro-${{ matrix.artifact }}
+          path: Paguro-*.zip
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List release files
+        run: find dist -type f -print
+
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          body: |
+            Multi-platform build of Paguro `${{ github.ref_name }}`.
+
+            Each archive contains:
+            - the Paguro executable for that platform
+            - `nn-3475407dc199.nnue` (required)
+            - `paguro.ini` with OwnBook disabled by default
+            - license and third-party notices
+
+            Without the `.nnue` file the engine falls back to a weaker handcrafted evaluation.
+
+            Source code: GPL-3.0-or-later. Evaluation network: CC0-1.0 (see THIRD_PARTY_NOTICES.md).
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -70,7 +70,8 @@ cargo build --release
 The portable executable is created at:
 
 ```text
-target/release/paguro.exe
+target/release/paguro.exe   # Windows
+target/release/paguro       # Linux and macOS
 ```
 
 On Windows, a build optimized for the current CPU can be produced with:
@@ -87,6 +88,27 @@ target/native/release/paguro.exe
 
 A native executable may not run on older or different processors. Use the
 portable build for general distribution.
+
+## Official binaries
+
+Tagged releases (`v0.5.0`, `v0.6.0`, …) are built automatically by GitHub
+Actions for:
+
+- Windows x86_64
+- Linux x86_64
+- macOS Apple Silicon (aarch64)
+
+Each release zip includes the executable, `nn-3475407dc199.nnue`, license
+files, and a tester-friendly `paguro.ini` with OwnBook disabled.
+
+To publish a new release from a clean commit on `master`:
+
+```text
+git tag v0.5.1
+git push origin v0.5.1
+```
+
+GitHub then builds the three packages and attaches them to the Release page.
 
 ## Running
 
@@ -148,9 +170,10 @@ powershell -ExecutionPolicy Bypass -File tools/bench_knps.ps1 `
 
 ## Release package
 
-A binary release should contain:
+Prefer the GitHub Actions release archives above. A manual package should
+contain:
 
-- the portable Paguro executable;
+- the portable Paguro executable for the target OS;
 - `nn-3475407dc199.nnue`;
 - `paguro.ini`;
 - `README.md`;

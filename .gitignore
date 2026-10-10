@@ -1,6 +1,9 @@
 # Rust build output
 /target/
 
+# Local binary packages for testers; publish via GitHub Releases instead
+/distribution/
+
 # Private local material; never publish this directory
 /secrets/
 
